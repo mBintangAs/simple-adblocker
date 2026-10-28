@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pengaturan - Simple Ad Blocker</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      width: 600px;
+      max-width: 100%;
+      padding: 24px;
+    }
+    .options-header {
+      border-bottom: 1px solid #d2d2d7;
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+    }
+    .options-header h1 {
+      text-align: left;
+      font-size: 22px;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f2;
+    }
+    .setting-label {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .setting-desc {
+      font-size: 12px;
+      color: #86868b;
+      margin-top: 2px;
+    }
+    .back-btn {
+      margin-top: 20px;
+      padding: 8px 16px;
+      background: #e8e8ed;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .back-btn:hover { background: #d1d1d6; }
+  </style>
+</head>
+<body>
+  <div class="options-header">
+    <h1>⚙️ Pengaturan Ad Blocker</h1>
+  </div>
+
+  <div class="setting-row">
+    <div>
+      <div class="setting-label">Blokir Iklan</div>
+      <div class="setting-desc">Aktifkan/nonaktifkan seluruh aturan pemblokiran</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="toggleAds" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="setting-row">
+    <div>
+      <div class="setting-label">Blokir YouTube Ads</div>
+      <div class="setting-desc">Hapus overlay & auto-skip iklan YouTube (content script)</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="toggleYoutube" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="setting-row">
+    <div>
+      <div class="setting-label">Reset Counter</div>
+      <div class="setting-desc">Setel ulang jumlah iklan yang diblokir hari ini</div>
+    </div>
+    <button id="resetCount" class="back-btn">Reset</button>
+  </div>
+
+  <button class="back-btn" id="backBtn">← Kembali ke Popup</button>
+
+  <script src="options.js"></script>
+</body>
+</html>

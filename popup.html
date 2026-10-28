@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🛡️ Ad Blocker</h1>
+    
+    <div class="status-section">
+      <p class="label">Status:</p>
+      <p class="status" id="status">Mengaktifkan...</p>
+    </div>
+
+    <div class="toggle-section">
+      <label class="switch">
+        <input type="checkbox" id="toggleAds" checked>
+        <span class="slider"></span>
+      </label>
+      <span class="toggle-label">Blokir Iklan</span>
+    </div>
+
+    <div class="stats-section">
+      <p class="stat-label">Iklan diblokir hari ini:</p>
+      <p class="stat-count" id="blockedCount">0</p>
+    </div>
+
+    <div class="rules-section">
+      <h3>Aturan Aktif:</h3>
+      <ul id="rulesList">
+        <li>Memuat...</li>
+      </ul>
+    </div>
+
+    <button id="openSettings" class="settings-btn">⚙️ Pengaturan</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
