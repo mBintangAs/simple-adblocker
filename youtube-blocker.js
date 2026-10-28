@@ -157,7 +157,11 @@
     for (const sel of SKIP_SELECTORS) {
       const btns = document.querySelectorAll(sel);
       for (const btn of btns) {
-        if (!btn.closest('.ytp-ad-skip-button-container[style*="display: none"]')) {
+        // Check if button is actually visible and clickable
+        const rect = btn.getBoundingClientRect?.();
+        const isVisible = rect && rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight;
+        
+        if (isVisible) {
           try {
             btn.click();
             log('Clicked skip button: ' + sel);
@@ -170,6 +174,24 @@
       }
     }
     return false;
+  }
+
+  // Aggressive skip — simulate mashing button for videos that require waiting
+  function aggressiveSkip() {
+    if (!youtubeEnabled) return;
+    // Check for "Skip Ad" button and press it repeatedly
+    for (const sel of SKIP_SELECTORS) {
+      const btn = document.querySelector(sel);
+      if (btn) {
+        try {
+          // Multiple clicks to ensure it registers
+          btn.click();
+          btn.click();
+          notifyBlocked();
+          return true;
+        } catch (e) {}
+      }
+    }
   }
 
   function removeAdElements() {
@@ -233,15 +255,17 @@
 
     // Immediate
     tick();
+    aggressiveSkip();
 
-    // Periodic (aggressive - 300ms)
+    // Periodic (aggressive - 100ms for rapid skip button click)
     const interval = setInterval(() => {
       if (!youtubeEnabled || !isContextValid()) {
         clearInterval(interval);
         return;
       }
+      aggressiveSkip();
       tick();
-    }, 300);
+    }, 100);
 
     // MutationObserver (detect new ad elements)
     try {
