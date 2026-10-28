@@ -43,6 +43,19 @@
         ytd-shelf-renderer [data-ad] {
           display: none !important;
         }
+
+        /* Mute ad audio & black out short ads */
+        .ytp-ad-module video,
+        .video-ads video {
+          opacity: 0 !important;
+          display: none !important;
+        }
+
+        /* Instant hide player overlay ads */
+        .ytp-player-content .ytp-ad-player-overlay {
+          display: none !important;
+          visibility: hidden !important;
+        }
       `;
       if (document.head) {
         document.head.appendChild(style);
@@ -222,16 +235,51 @@
     
     try {
       const video = document.querySelector('video');
-      if (video) {
-        // Try to speed up ad playback (some ads allow this)
-        video.playbackRate = 2.0;
-        log('Sped up ad video to 2x');
+      if (video && video.currentTime !== undefined) {
+        // Only speed up if it looks like an ad (< 30s duration or < 8s remaining)
+        if (video.duration < 30 || (video.duration - video.currentTime) < 8) {
+          video.playbackRate = Math.min(video.playbackRate + 0.5, 16); // Progressive speedup to max 16x
+          video.muted = true;
+          log('Sped up ad video to ' + video.playbackRate + 'x');
+        }
       }
     } catch (e) {}
     
     // Mash the skip button harder
     aggressiveSkip();
-    aggressiveSkip();
+  }
+
+  // Black out ad display using overlay (safer than modifying video element)
+  function blackoutAd() {
+    if (!youtubeEnabled) return;
+    if (!isAdPlaying()) return;
+    
+    try {
+      // Create or find overlay
+      let overlay = document.getElementById('adblocker-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'adblocker-overlay';
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: #000;
+          z-index: 999999;
+          pointer-events: none;
+          display: none;
+        `;
+        document.body.appendChild(overlay);
+      }
+      
+      // Show overlay only during ads
+      overlay.style.display = 'block';
+      log('Blacked out ad with overlay');
+      
+      // Auto-hide overlay after ad should be done (< 10 seconds max)
+      setTimeout(() => {
+        if (overlay) overlay.style.display = 'none';
+      }, 10000);
+    } catch (e) {}
   }
 
   function removeAdElements() {
@@ -305,6 +353,7 @@
       }
       aggressiveSkip();
       speedUpAd();
+      blackoutAd();
       tick();
     }, 100);
 
