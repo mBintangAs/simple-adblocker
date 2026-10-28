@@ -10,6 +10,54 @@
   let initDone = false;
   let isExtensionValid = true;
 
+  // Inject CSS to hide ads immediately (before MutationObserver kicks in)
+  function injectCSS() {
+    try {
+      const style = document.createElement('style');
+      style.textContent = `
+        /* Hide YouTube ad containers */
+        .ytp-ad-module,
+        .ytp-ad-overlay-container,
+        .ytp-ad-player-overlay,
+        .ytp-advertisement,
+        .video-ads,
+        #player-ads,
+        .ytp-ad-text-overlay,
+        .ytp-ad-skip-button-container,
+        ytd-promoted-video-renderer,
+        ytd-display-ad-renderer,
+        ytd-companion-slot-renderer,
+        [data-ad-container],
+        [class*="ytd-ad-"],
+        .ad-badge,
+        .ad-label {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+          width: 0 !important;
+          pointer-events: none !important;
+        }
+        
+        /* Hide promoted shelf */
+        [role="complementary"] ytd-video-renderer,
+        ytd-shelf-renderer [data-ad] {
+          display: none !important;
+        }
+      `;
+      if (document.head) {
+        document.head.appendChild(style);
+      } else if (document.documentElement) {
+        document.documentElement.appendChild(style);
+      }
+      log('CSS injected for ad blocking');
+    } catch (e) {
+      log('CSS injection error: ' + e.message);
+    }
+  }
+
+  // Inject CSS immediately
+  injectCSS();
+
   // Check if extension context is valid
   function isContextValid() {
     try {
