@@ -194,6 +194,46 @@
     }
   }
 
+  // Detect if ad is currently playing
+  function isAdPlaying() {
+    // Method 1: Check for ad indicator in player
+    const adIndicator = document.querySelector('.ad-showing, .ytp-ad-module[style*="block"]');
+    if (adIndicator) return true;
+    
+    // Method 2: Check for skip button visibility (means ad is playing)
+    for (const sel of SKIP_SELECTORS) {
+      const btn = document.querySelector(sel);
+      if (btn && btn.offsetParent !== null) return true;
+    }
+    
+    // Method 3: Check video title contains "Ad" or "Iklan"
+    const titleEl = document.querySelector('h1.title yt-formatted-string, h1 yt-formatted-string');
+    if (titleEl && (titleEl.textContent?.includes('Ad') || titleEl.textContent?.includes('Iklan'))) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Speed up ad video (if possible) and force skip faster
+  function speedUpAd() {
+    if (!youtubeEnabled) return;
+    if (!isAdPlaying()) return;
+    
+    try {
+      const video = document.querySelector('video');
+      if (video) {
+        // Try to speed up ad playback (some ads allow this)
+        video.playbackRate = 2.0;
+        log('Sped up ad video to 2x');
+      }
+    } catch (e) {}
+    
+    // Mash the skip button harder
+    aggressiveSkip();
+    aggressiveSkip();
+  }
+
   function removeAdElements() {
     if (!youtubeEnabled) return;
     let removed = 0;
@@ -264,6 +304,7 @@
         return;
       }
       aggressiveSkip();
+      speedUpAd();
       tick();
     }, 100);
 
