@@ -8,24 +8,45 @@
 
   let youtubeEnabled = true;
   let initDone = false;
+  let isExtensionValid = true;
+
+  // Check if extension context is valid
+  function isContextValid() {
+    try {
+      chrome.runtime.getURL('');
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 
   // Load setting dengan callback proper (jangan async race condition)
-  chrome.storage.local.get(['youtube_enabled'], (result) => {
-    youtubeEnabled = result.youtube_enabled !== false;
-    console.log('[AdBlocker-YT] youtube_enabled:', youtubeEnabled);
-    if (!initDone && youtubeEnabled) {
-      init();
-      initDone = true;
-    }
-  });
+  try {
+    chrome.storage.local.get(['youtube_enabled'], (result) => {
+      if (!isContextValid()) return;
+      youtubeEnabled = result?.youtube_enabled !== false;
+      console.log('[AdBlocker-YT] youtube_enabled:', youtubeEnabled);
+      if (!initDone && youtubeEnabled) {
+        init();
+        initDone = true;
+      }
+    });
+  } catch (e) {
+    console.log('[AdBlocker-YT] storage.get error:', e.message);
+  }
 
   // Listen setting changes real-time
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.youtube_enabled) {
-      youtubeEnabled = changes.youtube_enabled.newValue !== false;
-      console.log('[AdBlocker-YT] Setting changed, enabled:', youtubeEnabled);
-    }
-  });
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (!isContextValid()) return;
+      if (area === 'local' && changes.youtube_enabled) {
+        youtubeEnabled = changes.youtube_enabled.newValue !== false;
+        console.log('[AdBlocker-YT] Setting changed, enabled:', youtubeEnabled);
+      }
+    });
+  } catch (e) {
+    console.log('[AdBlocker-YT] storage.onChanged error:', e.message);
+  }
 
   // Selector yang aggressive untuk YouTube ads
   const AD_SELECTORS = [
@@ -74,11 +95,17 @@
   function notifyBlocked() {
     blockedCount++;
     log('Blocked #' + blockedCount);
-    chrome.runtime.sendMessage({ action: 'blocked', count: blockedCount }).catch(() => {});
+    try {
+      chrome.runtime.sendMessage({ action: 'blocked', count: blockedCount }).catch((err) => {
+        // Ignore: extension context invalidated setelah reload
+      });
+    } catch (e) {
+      // Extension context invalid, silent fail
+    }
   }
 
   function clickSkipButton() {
-    if (!youtubeEnabled) return;
+    if (!youtubeEnabled || !isContextValid()) return;
     for (const sel of SKIP_SELECTORS) {
       const btns = document.querySelectorAll(sel);
       for (const btn of btns) {
@@ -138,9 +165,11 @@
     if (!youtubeEnabled) return;
     const overlays = document.querySelectorAll('.ytp-ad-overlay-container, .ytp-ad-player-overlay, .ytp-advertisement');
     for (const o of overlays) {
-      o.style.display = 'none';
-      o.style.visibility = 'hidden';
-      o.style.pointerEvents = 'none';
+      try {
+        o.style.display = 'none';
+        o.style.visibility = 'hidden';
+        o.style.pointerEvents = 'none';
+      } catch (e) {}
     }
   }
 
@@ -157,9 +186,9 @@
     // Immediate
     tick();
 
-    // Periodic (aggressive - 300ms instead of 500ms)
+    // Periodic (aggressive - 300ms)
     const interval = setInterval(() => {
-      if (!youtubeEnabled) {
+      if (!youtubeEnabled || !isContextValid()) {
         clearInterval(interval);
         return;
       }
@@ -169,6 +198,10 @@
     // MutationObserver (detect new ad elements)
     try {
       observer = new MutationObserver((mutations) => {
+        if (!isContextValid()) {
+          observer?.disconnect();
+          return;
+        }
         for (const m of mutations) {
           if (m.type === 'childList') {
             // Check if new nodes have ad indicators
@@ -202,23 +235,37 @@
 
     // Listen YouTube navigation (SPA)
     document.addEventListener('yt-navigate-finish', () => {
-      log('Page navigated, tick');
-      tick();
+      if (isContextValid()) {
+        log('Page navigated, tick');
+        tick();
+      }
     });
 
     // Page load
     window.addEventListener('load', () => {
-      log('Window load, tick');
-      setTimeout(tick, 1000);
+      if (isContextValid()) {
+        log('Window load, tick');
+        setTimeout(tick, 1000);
+      }
     });
 
     log('Init complete');
   }
 
   // Jangan tunggu async, langsung trigger init kalau enabled
-  // (callback akan trigger lagi kalau sudah done)
-  if (youtubeEnabled && !initDone) {
+  if (youtubeEnabled && !initDone && isContextValid()) {
     init();
     initDone = true;
   }
+
+  // Monitor extension context validity every 5 seconds
+  setInterval(() => {
+    isExtensionValid = isContextValid();
+    if (!isExtensionValid) {
+      log('Extension context invalidated, stopping');
+      try {
+        observer?.disconnect();
+      } catch (e) {}
+    }
+  }, 5000);
 })();
