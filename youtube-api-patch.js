@@ -73,7 +73,8 @@
 
   // ---- Patch fetch ----
   const origFetch = window.fetch;
-  if (typeof origFetch === 'function') {
+  let fetchPatched = false;
+  if (typeof origFetch === 'function' && !fetchPatched) {
     window.fetch = function (input, init) {
       const url = typeof input === 'string'
         ? input
@@ -93,9 +94,7 @@
         return cloned.text().then((text) => {
           try {
             const json = JSON.parse(text);
-            const before = JSON.stringify(json).length;
             const fieldsRemoved = stripAdFields(json);
-            const after = JSON.stringify(json).length;
             if (fieldsRemoved > 0) {
               console.log(TAG, 'Stripped', fieldsRemoved, 'ad fields from', url.split('?')[0]);
               // Report ke service worker
@@ -119,6 +118,7 @@
         }).catch(() => response);
       });
     };
+    fetchPatched = true;
     console.log(TAG, 'fetch patched');
   }
 
@@ -237,7 +237,5 @@
         window.__adblockLastTime_ms = Date.now();
       } catch (e) {}
     }, 500);
-
-    console.log(TAG, 'Player state monitoring started');
   }, 1000);
 })();
