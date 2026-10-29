@@ -30,40 +30,20 @@
     }
   } catch (e) {}
 
-  // Buang semua field iklan dari object (rekursif di level 1)
+  // Buang semua field iklan dari object
   function stripAdFields(obj) {
-    if (!obj || typeof obj !== 'object') return;
-
-    // Hapus field iklan di level atas
-    const AD_KEYS = [
-      'adPlacements',
-      'playerAds',
-      'adBreakHeartbeatParams',
-      'adBreakConfig',
-      'adSlots',
-      'adInfo',
-      'adsConfig'
-    ];
-
+    if (!obj || typeof obj !== 'object') return 0;
+    let removed = 0;
+    const AD_KEYS = ['adPlacements', 'playerAds', 'adBreakHeartbeatParams', 'adBreakConfig', 'adSlots', 'adInfo', 'adsConfig'];
     for (const key of AD_KEYS) {
-      if (key in obj) {
-        delete obj[key];
-      }
+      if (key in obj) { delete obj[key]; removed++; }
     }
-
-    // Hapus di dalam playerResponse (struktur umum YouTube)
     if (obj.playerResponse && typeof obj.playerResponse === 'object') {
       for (const key of AD_KEYS) {
-        if (key in obj.playerResponse) {
-          delete obj.playerResponse[key];
-        }
+        if (key in obj.playerResponse) { delete obj.playerResponse[key]; removed++; }
       }
     }
-
-    // Hapus di dalam playabilityStatus / streamingData kalau ada flag ads
-    if (obj.playerResponse && obj.playerResponse.streamingData) {
-      // biarkan streamingData (itu video asli, bukan iklan)
-    }
+    return removed;
   }
 
   function shouldIntercept(url) {
@@ -96,8 +76,6 @@
             const json = JSON.parse(text);
             const fieldsRemoved = stripAdFields(json);
             if (fieldsRemoved > 0) {
-              console.log(TAG, 'Stripped', fieldsRemoved, 'ad fields from', url.split('?')[0]);
-              // Report ke service worker
               try {
                 chrome.runtime.sendMessage({
                   action: 'api-stripped',
@@ -122,45 +100,11 @@
     console.log(TAG, 'fetch patched');
   }
 
-  // ---- Patch XMLHttpRequest (fallback) ----
-  const OrigXHRSend = XMLHttpRequest.prototype.send;
-  const OrigXHROpen = XMLHttpRequest.prototype.open;
-  if (typeof OrigXHRSend === 'function' && typeof OrigXHROpen === 'function') {
-    XMLHttpRequest.prototype.open = function (method, url) {
-      this.__adblockUrl = url || '';
-      return OrigXHROpen.apply(this, arguments);
-    };
-
-    XMLHttpRequest.prototype.send = function (body) {
-      const xhr = this;
-      const url = xhr.__adblockUrl || '';
-
-      if (shouldIntercept(url)) {
-        const origAddEventListener = xhr.addEventListener;
-        xhr.addEventListener = function (type, listener, opts) {
-          if (type === 'readystatechange' || type === 'load') {
-            const wrapped = function (ev) {
-              if (xhr.readyState === 4 && xhr.responseText) {
-                try {
-                  const json = JSON.parse(xhr.responseText);
-                  stripAdFields(json);
-                  // Tidak bisa replace responseText langsung, tapi sebagian
-                  // besar path YouTube pakai fetch — XHR ini fallback passive.
-                } catch (e) {}
-              }
-              if (listener) listener.call(xhr, ev);
-            };
-            return origAddEventListener.call(xhr, type, wrapped, opts);
-          }
-          return origAddEventListener.call(xhr, type, listener, opts);
-        };
-      }
-      return OrigXHRSend.apply(this, arguments);
-    };
-    console.log(TAG, 'XHR patched (passive)');
+  // ---- Patch XMLHttpRequest (fallback, minimal) ----
+  // YouTube mostly uses fetch, XHR is passive fallback
+  if (typeof XMLHttpRequest.prototype.send === 'function') {
+    // Keep it minimal to avoid detection
   }
-
-  console.log(TAG, 'API patcher loaded, enabled =', enabled);
 
   // ---- Step 3: Monitor player state untuk detect ads non-skippable ----
   // Patch window.yt.player.seekTo & player.play buat track kapan ada playing
