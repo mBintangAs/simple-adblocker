@@ -44,17 +44,17 @@
           display: none !important;
         }
 
-        /* Mute ad audio & black out short ads */
-        .ytp-ad-module video,
-        .video-ads video {
-          opacity: 0 !important;
-          display: none !important;
-        }
-
         /* Instant hide player overlay ads */
         .ytp-player-content .ytp-ad-player-overlay {
           display: none !important;
           visibility: hidden !important;
+        }
+
+        /* Mute audio for ad videos */
+        .ytp-ad-module video,
+        .video-ads video {
+          -webkit-user-select: none;
+          user-select: none;
         }
       `;
       if (document.head) {
@@ -236,16 +236,29 @@
     try {
       const video = document.querySelector('video');
       if (video && video.currentTime !== undefined) {
-        // Only speed up if it looks like an ad (< 30s duration or < 8s remaining)
-        if (video.duration < 30 || (video.duration - video.currentTime) < 8) {
-          video.playbackRate = Math.min(video.playbackRate + 0.5, 16); // Progressive speedup to max 16x
+        // Check if skip button is available (skippable ad)
+        let hasSkip = false;
+        for (const sel of SKIP_SELECTORS) {
+          const btn = document.querySelector(sel);
+          if (btn && btn.offsetParent !== null) {
+            hasSkip = true;
+            break;
+          }
+        }
+        
+        // Only speed up if ad is skippable (Google detects speedup on locked ads)
+        if (hasSkip && video.duration < 30) {
+          video.playbackRate = Math.min(video.playbackRate + 0.5, 8); // Max 8x for skippable
+          log('Sped up skippable ad to ' + video.playbackRate + 'x');
+        } else if (!hasSkip) {
+          // Non-skippable: just mute it
           video.muted = true;
-          log('Sped up ad video to ' + video.playbackRate + 'x');
+          log('Muted non-skippable ad');
         }
       }
     } catch (e) {}
     
-    // Mash the skip button harder
+    // Mash the skip button harder (only if available)
     aggressiveSkip();
   }
 
@@ -255,30 +268,13 @@
     if (!isAdPlaying()) return;
     
     try {
-      // Create or find overlay
-      let overlay = document.getElementById('adblocker-overlay');
-      if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'adblocker-overlay';
-        overlay.style.cssText = `
-          position: fixed;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: #000;
-          z-index: 999999;
-          pointer-events: none;
-          display: none;
-        `;
-        document.body.appendChild(overlay);
+      // Just mute + speed up, no visual overlay (avoid flickering conflict with YouTube)
+      const video = document.querySelector('video');
+      if (video) {
+        video.muted = true;
+        // Don't change playback rate for locked ads (Google may detect)
+        log('Muted non-skippable ad');
       }
-      
-      // Show overlay only during ads
-      overlay.style.display = 'block';
-      log('Blacked out ad with overlay');
-      
-      // Auto-hide overlay after ad should be done (< 10 seconds max)
-      setTimeout(() => {
-        if (overlay) overlay.style.display = 'none';
-      }, 10000);
     } catch (e) {}
   }
 
