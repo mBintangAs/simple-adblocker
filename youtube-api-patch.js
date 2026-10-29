@@ -94,10 +94,18 @@
           try {
             const json = JSON.parse(text);
             const before = JSON.stringify(json).length;
-            stripAdFields(json);
+            const fieldsRemoved = stripAdFields(json);
             const after = JSON.stringify(json).length;
-            if (before !== after) {
-              console.log(TAG, 'Stripped ad fields from', url.split('?')[0]);
+            if (fieldsRemoved > 0) {
+              console.log(TAG, 'Stripped', fieldsRemoved, 'ad fields from', url.split('?')[0]);
+              // Report ke service worker
+              try {
+                chrome.runtime.sendMessage({
+                  action: 'api-stripped',
+                  fieldsRemoved: fieldsRemoved,
+                  endpoint: url.split('?')[0]
+                }).catch(() => {});
+              } catch (e) {}
             }
             return new Response(JSON.stringify(json), {
               status: response.status,
@@ -211,6 +219,14 @@
               // Try jump forward
               video.currentTime = Math.min(current + 5, duration);
               adDetectionCount = 0;
+              // Report ke service worker
+              try {
+                chrome.runtime.sendMessage({
+                  action: 'stuck-video-detected',
+                  duration: duration,
+                  currentTime: current
+                }).catch(() => {});
+              } catch (e) {}
             }
           } else {
             adDetectionCount = 0;

@@ -69,3 +69,28 @@ async function resetCounterIfNewDay() {
   const today = new Date().toDateString();
   await chrome.storage.local.set({ [COUNT_KEY]: 0, [DATE_KEY]: today });
 }
+
+// ===== API Stripping Stats (YouTube-specific) =====
+let apiStripStats = {
+  playerResponses: 0,
+  adFieldsRemoved: 0,
+  lastUpdate: new Date().toDateString()
+};
+
+// Listen untuk pesan dari youtube-api-patch tentang API interceptions
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.action === 'api-stripped') {
+    apiStripStats.playerResponses++;
+    apiStripStats.adFieldsRemoved += msg.fieldsRemoved || 0;
+    apiStripStats.lastUpdate = new Date().toISOString();
+    console.log('[AdBlocker-API] Stripped:', apiStripStats.playerResponses, 'responses');
+  } else if (msg.action === 'stuck-video-detected') {
+    console.log('[AdBlocker-Video] Stuck ad detected, forced skip');
+    incrementCounter();
+  } else if (msg.action === 'get-api-stats') {
+    sendResponse({
+      stats: apiStripStats,
+      timestamp: new Date().toDateString()
+    });
+  }
+});
