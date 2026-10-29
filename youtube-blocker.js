@@ -235,26 +235,10 @@
     
     try {
       const video = document.querySelector('video');
-      if (video && video.currentTime !== undefined) {
-        // Check if skip button is available (skippable ad)
-        let hasSkip = false;
-        for (const sel of SKIP_SELECTORS) {
-          const btn = document.querySelector(sel);
-          if (btn && btn.offsetParent !== null) {
-            hasSkip = true;
-            break;
-          }
-        }
-        
-        // Only speed up if ad is skippable (Google detects speedup on locked ads)
-        if (hasSkip && video.duration < 30) {
-          video.playbackRate = Math.min(video.playbackRate + 0.5, 8); // Max 8x for skippable
-          log('Sped up skippable ad to ' + video.playbackRate + 'x');
-        } else if (!hasSkip) {
-          // Non-skippable: just mute it
-          video.muted = true;
-          log('Muted non-skippable ad');
-        }
+      if (video) {
+        // DISABLED: playbackRate causes flickering + Google detects it
+        // Just mute instead
+        video.muted = true;
       }
     } catch (e) {}
     
@@ -348,8 +332,6 @@
         return;
       }
       aggressiveSkip();
-      speedUpAd();
-      blackoutAd();
       tick();
     }, 100);
 
