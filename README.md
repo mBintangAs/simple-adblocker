@@ -1,25 +1,49 @@
-# Simple Ad Blocker
+# Simple Ad Blocker - Brave-like Architecture
 
-Chrome extension Manifest V3 untuk memblokir iklan di web, termasuk YouTube.
+Chrome extension Manifest V3 untuk memblokir iklan YouTube & web secara komprehensif.
+
+## Arsitektur (4 Layers)
+
+### Layer 1: Network Rules (declarativeNetRequest)
+- **136 filter rules** blocking ad domains
+- EasyList + YouTube-specific endpoints
+- Blokir di level jaringan sebelum masuk browser
+
+### Layer 2: API Response Patcher (youtube-api-patch.js)
+- Intercept `window.fetch()` untuk YouTube API calls
+- Strip `adPlacements`, `playerAds` dari playerResponse sebelum render
+- **Cara Brave bekerja**: hapus iklan dari API response
+
+### Layer 3: DOM Blocker (youtube-blocker.js)
+- CSS injection (instant hide ad containers)
+- Aggressive skip button clicking (100ms)
+- Fallback DOM manipulation
+
+### Layer 4: Player State Monitoring
+- Deteksi video stuck (indikator ada playing)
+- Force skip dengan seekTo()
+- Monitor seekTo jumps
 
 ## Fitur
 
-- **Network-based blocking** — menggunakan `declarativeNetRequest` untuk memblokir request iklan (ads.google, doubleclick, analytics, dll)
-- **YouTube ad removal** — content script menghapus overlay iklan YouTube dan auto-skip tombol skip
-- **Toggle on/off** — enable/disable blocking dari popup extension
-- **Counter** — hitung iklan yang diblokir per hari
-- **Settings page** — kontrol YouTube blocking terpisah dari network blocking
+✓ Auto-skip ads  
+✓ Mute non-skippable ads  
+✓ Remove promoted videos  
+✓ Counter iklan/hari  
+✓ Settings page  
+✓ Anti-detection hardening  
 
 ## Struktur
 
 ```
-├── manifest.json           # Konfigurasi extension MV3
-├── popup.html/js/css      # UI popup toolbar
-├── options.html/js        # Settings page
-├── service-worker.js      # Background service worker
-├── youtube-blocker.js     # Content script untuk YouTube
-├── rules.json             # Blocking rules untuk declarativeNetRequest
-└── icons/                 # Extension icons (16, 48, 128 px)
+├── manifest.json              # MV3 config + content scripts
+├── rules.json                 # 136 network blocking rules
+├── youtube-api-patch.js       # API response stripping (MAIN world)
+├── youtube-blocker.js         # DOM blocking (ISOLATED world)
+├── service-worker.js          # Background service worker
+├── popup.html/js/css          # Extension UI
+├── options.html/js            # Settings page
+└── icons/                     # Extension icons
 ```
 
 ## Setup & Testing
@@ -27,26 +51,7 @@ Chrome extension Manifest V3 untuk memblokir iklan di web, termasuk YouTube.
 1. Clone repo ini
 2. Buka `chrome://extensions` → Developer mode ON
 3. Load unpacked → pilih folder ini
-4. Klik ikon extension → buka YouTube
-5. Ads harus dihapus/di-skip otomatis
-
-## Cara Kerja
-
-### Blocking Rules (MV3 declarativeNetRequest)
-- 7 aturan untuk memblokir request ad-related (network layer)
-- Tidak perlu host permissions khusus
-- Lebih cepat, less overhead dibanding MV2 webRequest
-
-### YouTube Content Script
-- Deteksi elemen iklan di DOM (.ytp-ad-*, ytd-promoted-*, dll)
-- Click tombol "Skip Ad" otomatis
-- Remove overlay ads yang menutupi video
-- MutationObserver untuk elemen yang di-inject dinamis
-- Interval 300ms + console logging buat debug
-
-## Debug
-
-Console buka F12 → filter `[AdBlocker-YT]` buat lihat log dari YouTube blocker.
+4. Buka YouTube → ads blocked
 
 ## License
 
