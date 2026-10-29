@@ -16,6 +16,12 @@
       "matches": ["*://*.youtube.com/*"],
       "js": ["youtube-blocker.js"],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["youtube-api-patch.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ],
   "action": {
