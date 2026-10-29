@@ -153,4 +153,75 @@
   }
 
   console.log(TAG, 'API patcher loaded, enabled =', enabled);
+
+  // ---- Step 3: Monitor player state untuk detect ads non-skippable ----
+  // Patch window.yt.player.seekTo & player.play buat track kapan ada playing
+  
+  setTimeout(() => {
+    if (!window.yt || !window.yt.player) {
+      console.log(TAG, 'window.yt.player not available yet, skipping...');
+      return;
+    }
+
+    const player = window.yt.player;
+    let lastSeekTime = 0;
+    let adDetectionCount = 0;
+
+    // Intercept seekTo — track jika jump mendadak (indikasi skip ad)
+    if (typeof player.seekTo === 'function') {
+      const origSeekTo = player.seekTo;
+      player.seekTo = function(time, shouldQueue) {
+        const current = this.getCurrentTime?.() || 0;
+        const diff = Math.abs(time - current);
+        
+        // Jump > 10 detik = mungkin skip ad
+        if (diff > 10 && enabled) {
+          lastSeekTime = Date.now();
+          console.log(TAG, 'seekTo detected jump:', current, '->', time, '(diff:', diff, ')');
+        }
+        return origSeekTo.call(this, time, shouldQueue);
+      };
+    }
+
+    // Monitor currentTime — kalau stuck = indikasi ad playing
+    let checkInterval = setInterval(() => {
+      if (!enabled) {
+        clearInterval(checkInterval);
+        return;
+      }
+
+      try {
+        const video = document.querySelector('video');
+        if (!video || !video.duration) return;
+
+        const current = video.currentTime;
+        const duration = video.duration;
+        const paused = video.paused;
+
+        // Heuristic: kalau video stuck di posisi tertentu > 2 detik, tapi durasi normal = ad
+        if (window.__adblockLastTime !== undefined) {
+          const timeDiff = current - window.__adblockLastTime;
+          const timeElapsed = (Date.now() - window.__adblockLastTime_ms) / 1000;
+
+          // Time tidak maju tapi bukan paused = ad playing (frozen)
+          if (Math.abs(timeDiff) < 0.1 && timeElapsed > 2 && !paused) {
+            adDetectionCount++;
+            if (adDetectionCount > 2) {
+              console.log(TAG, 'Detected stuck video (ad?), forcing skip...');
+              // Try jump forward
+              video.currentTime = Math.min(current + 5, duration);
+              adDetectionCount = 0;
+            }
+          } else {
+            adDetectionCount = 0;
+          }
+        }
+
+        window.__adblockLastTime = current;
+        window.__adblockLastTime_ms = Date.now();
+      } catch (e) {}
+    }, 500);
+
+    console.log(TAG, 'Player state monitoring started');
+  }, 1000);
 })();
